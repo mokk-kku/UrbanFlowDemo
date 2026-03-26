@@ -2,37 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Urban Flow | Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Urban Flow | Authentication</title>
     <link rel="stylesheet" href="auth.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
+    <button id="lang-btn" class="lang-btn">TH / EN</button>
+
     <div class="auth-card">
-        <h1 id="auth-title">Welcome Back</h1>
-        <p id="auth-subtitle">Please enter your details</p>
+        <h1 id="auth-title" data-en="Welcome Back" data-th="ยินดีต้อนรับกลับมา">Welcome Back</h1>
+        <p id="auth-subtitle" data-en="Please enter your details" data-th="กรุณากรอกข้อมูลของคุณ">Please enter your details</p>
         <form id="auth-form">
             <div class="input-group">
-                <label>Email Address</label>
+                <label data-en="Email Address" data-th="อีเมล">Email Address</label>
                 <input type="email" id="email" placeholder="name@example.com" required>
             </div>
             <div class="input-group">
-                <label>Password</label>
+                <label data-en="Password" data-th="รหัสผ่าน">Password</label>
                 <input type="password" id="password" placeholder="••••••••" required>
             </div>
             <div id="register-fields" class="hidden">
                 <div class="input-group">
-                    <label>Confirm Password</label>
+                    <label data-en="Confirm Password" data-th="ยืนยันรหัสผ่าน">Confirm Password</label>
                     <input type="password" id="confirm-password" placeholder="••••••••">
                 </div>
             </div>
-            <button type="submit" class="auth-btn" id="submit-btn">Sign In</button>
+            <button type="submit" class="auth-btn" id="submit-btn" data-en="Sign In" data-th="เข้าสู่ระบบ">Sign In</button>
         </form>
         <div class="auth-footer">
-            <p><a href="#" id="toggle-auth">Create Account</a></p>
+            <p><a href="#" id="toggle-auth" data-en="Create Account" data-th="สร้างบัญชีใหม่">Create Account</a></p>
         </div>
     </div>
 
     <script>
+        // Language Setup
+        let currentLang = localStorage.getItem('urban_lang') || 'en';
+        function updateText() {
+            document.querySelectorAll('[data-en]').forEach(el => el.innerText = el.getAttribute(`data-${currentLang}`));
+            document.body.className = currentLang === 'th' ? 'th-lang' : '';
+            document.getElementById('lang-btn').innerText = currentLang === 'en' ? '🇹🇭 TH' : '🇬🇧 EN';
+        }
+        document.getElementById('lang-btn').onclick = () => {
+            currentLang = currentLang === 'en' ? 'th' : 'en';
+            localStorage.setItem('urban_lang', currentLang);
+            updateText();
+        };
+        updateText();
+
+        // Auth Logic
         const form = document.getElementById('auth-form');
         const toggleBtn = document.getElementById('toggle-auth');
         const registerFields = document.getElementById('register-fields');
@@ -42,29 +60,34 @@
         toggleBtn.onclick = (e) => {
             e.preventDefault();
             isLogin = !isLogin;
-            authTitle.innerText = isLogin ? "Welcome Back" : "Create Account";
-            document.getElementById('submit-btn').innerText = isLogin ? "Sign In" : "Register";
-            toggleBtn.innerText = isLogin ? "Create Account" : "Back to Login";
+            authTitle.innerText = isLogin 
+                ? (currentLang === 'th' ? "ยินดีต้อนรับกลับมา" : "Welcome Back") 
+                : (currentLang === 'th' ? "สร้างบัญชีใหม่" : "Create Account");
+            document.getElementById('submit-btn').innerText = isLogin 
+                ? (currentLang === 'th' ? "เข้าสู่ระบบ" : "Sign In") 
+                : (currentLang === 'th' ? "ลงทะเบียน" : "Register");
+            toggleBtn.innerText = isLogin 
+                ? (currentLang === 'th' ? "สร้างบัญชีใหม่" : "Create Account") 
+                : (currentLang === 'th' ? "กลับไปหน้าเข้าสู่ระบบ" : "Back to Login");
             registerFields.classList.toggle('hidden');
         };
 
         form.onsubmit = (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+            const pass = document.getElementById('password').value;
             const passInput = document.getElementById('password');
             let users = JSON.parse(localStorage.getItem('urban_users')) || [];
 
             if (isLogin) {
                 const userFound = users.find(u => u.email === email);
                 if (!userFound) {
-                    alert("❌ ไม่พบอีเมลนี้ในระบบ");
-                } else if (userFound.password !== password) {
+                    alert(currentLang === 'th' ? "❌ ไม่พบอีเมลนี้ในระบบ" : "❌ Email not found");
+                } else if (userFound.password !== pass) {
                     passInput.classList.add('error-shake');
-                    alert("⚠️ รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่");
+                    alert(currentLang === 'th' ? "⚠️ รหัสผ่านไม่ถูกต้อง" : "⚠️ Incorrect password");
                     setTimeout(() => passInput.classList.remove('error-shake'), 300);
-                    passInput.value = "";
-                    passInput.focus();
+                    passInput.value = ""; passInput.focus();
                 } else {
                     sessionStorage.setItem('isLoggedIn', 'true');
                     sessionStorage.setItem('userEmail', email);
@@ -72,11 +95,11 @@
                 }
             } else {
                 const confirmPass = document.getElementById('confirm-password').value;
-                if (password !== confirmPass) { alert("❌ รหัสผ่านไม่ตรงกัน"); return; }
-                if (users.find(u => u.email === email)) { alert("⚠️ อีเมลนี้ถูกใช้ไปแล้ว"); return; }
-                users.push({ email, password });
+                if (pass !== confirmPass) { alert(currentLang === 'th' ? "❌ รหัสผ่านไม่ตรงกัน" : "❌ Passwords mismatch"); return; }
+                if (users.find(u => u.email === email)) { alert(currentLang === 'th' ? "⚠️ อีเมลนี้ถูกใช้ไปแล้ว" : "⚠️ Email already exists"); return; }
+                users.push({ email, password: pass });
                 localStorage.setItem('urban_users', JSON.stringify(users));
-                alert("🎉 สมัครสมาชิกสำเร็จ!");
+                alert(currentLang === 'th' ? "🎉 สมัครสำเร็จ!" : "🎉 Registered successfully!");
                 toggleBtn.click();
             }
         };

@@ -1,127 +1,41 @@
-import { GraphLoader } from './core/GraphLoader.js';
-import { DijkstraStrategy } from './algorithms/Dijkstra.js';
+import { RouteStrategy } from './RouteStrategy.js';
 
-if (sessionStorage.getItem('isLoggedIn') !== 'true') { window.location.href = 'auth.html'; }
-
-let graph, map, currentMode = 'time', routeLine = null;
-let currentLang = localStorage.getItem('urban_lang') || 'en';
-
-async function init() {
-    const loader = new GraphLoader();
-    graph = await loader.load('./data/transit_network.json');
-    document.getElementById('uName').innerText = sessionStorage.getItem('userEmail');
-
-    // Init Map
-    map = L.map('map', { zoomControl: false }).setView([13.75, 100.53], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-
-    // Setup Language and UI
-    setupLanguage();
-    populateDropdowns();
-    renderMapNodes();
-
-    // Events
-    document.getElementById('langToggleBtn').onclick = () => {
-        currentLang = currentLang === 'en' ? 'th' : 'en';
-        localStorage.setItem('urban_lang', currentLang);
-        setupLanguage();
-        populateDropdowns(); // Re-render dropdowns with new language
-        renderMapNodes();    // Re-render map popups
-    };
-
-    document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.onclick = (e) => {
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            currentMode = e.currentTarget.dataset.mode;
-        };
-    });
-
-    document.getElementById('searchBtn').onclick = calculateAndDraw;
-}
-
-// ---------------- UI & Language Functions ----------------
-function setupLanguage() {
-    document.querySelectorAll('[data-en]').forEach(el => {
-        el.innerText = el.getAttribute(`data-${currentLang}`);
-    });
-    document.body.className = currentLang === 'th' ? 'th-lang' : '';
-    document.getElementById('langToggleBtn').innerText = currentLang === 'en' ? 'TH' : 'EN';
-}
-
-function getNodeName(node) {
-    // ดึงชื่อตามภาษา หรือ fallback ไปใช้ชื่ออังกฤษถ้าไม่มีข้อมูล
-    return currentLang === 'th' && node.name_th ? node.name_th : (node.name_en || node.name);
-}
-
-function populateDropdowns() {
-    const startSel = document.getElementById('startNode');
-    const endSel = document.getElementById('endNode');
+export class DijkstraStrategy extends RouteStrategy {
+    constructor(mode) { 
+        super();
+        this.mode = mode; 
+    }
     
-    // เก็บค่าที่เลือกไว้ก่อนเปลี่ยนภาษา
-    const currentStart = startSel.value;
-    const currentEnd = endSel.value;
+    calculate(graph, startId, endId) {
+        const dists = {}, prev = {}, pq = new Set(Object.keys(graph.nodes));
+        Object.keys(graph.nodes).forEach(id => { dists[id] = Infinity; prev[id] = null; });
+        dists[startId] = 0;
 
-    startSel.innerHTML = '';
-    endSel.innerHTML = '';
+        while (pq.size > 0) {
+            let curr = [...pq].reduce((a, b) => dists[a] < dists[b] ? a : b);
+            if (curr === endId || dists[curr] === Infinity) break;
+            pq.delete(curr);
 
-    const sortedNodes = Object.values(graph.nodes).sort((a,b) => getNodeName(a).localeCompare(getNodeName(b)));
+            (graph.adjacencyList[curr] || []).forEach(edge => {
+                const alt = dists[curr] + edge[this.mode];
+                if (alt < dists[edge.to]) {
+                    dists[edge.to] = alt;
+                    prev[edge.to] = { from: curr, edge };
+                }
+            });
+        }
+        return this.reconstruct(prev, endId);
+    }
     
-    sortedNodes.forEach(node => {
-        const name = getNodeName(node);
-        const opt = `<option value="${node.id}">${name} (${node.line})</option>`;
-        startSel.innerHTML += opt;
-        endSel.innerHTML += opt;
-    });
-
-    // คืนค่าที่เลือกไว้
-    if (currentStart) startSel.value = currentStart;
-    if (currentEnd) endSel.value = currentEnd;
-}
-
-let nodeMarkers = [];
-function renderMapNodes() {
-    // ลบจุดเก่าออกก่อนวาดใหม่
-    nodeMarkers.forEach(m => map.removeLayer(m));
-    nodeMarkers = [];
-
-    Object.values(graph.nodes).forEach(node => {
-        const name = getNodeName(node);
-        const marker = L.circleMarker([node.lat, node.lng], { radius: 4, color: '#00e676', fillOpacity: 0.6 })
-            .bindPopup(`<b>${name}</b><br><small>Line: ${node.line}</small>`)
-            .addTo(map);
-        nodeMarkers.push(marker);
-    });
-}
-
-// ---------------- Route Calculation ----------------
-function calculateAndDraw() {
-    const startSel = document.getElementById('startNode').value;
-    const endSel = document.getElementById('endNode').value;
-    const solver = new DijkstraStrategy(currentMode);
-    const result = solver.calculate(graph, startSel, endSel);
-    
-    if (routeLine) map.removeLayer(routeLine);
-    
-    if (result) {
-        const pts = result.path.map(s => [graph.nodes[s.from].lat, graph.nodes[s.from].lng]);
-        pts.push([graph.nodes[result.path.at(-1).to].lat, graph.nodes[result.path.at(-1).to].lng]);
-        routeLine = L.polyline(pts, { color: '#00e676', weight: 5 }).addTo(map);
-        map.fitBounds(routeLine.getBounds());
-        
-        // สรุปผลลัพธ์เป็นภาษาที่เลือก
-        const tTime = currentLang === 'th' ? 'เวลา' : 'Time';
-        const tCost = currentLang === 'th' ? 'ค่าใช้จ่าย' : 'Cost';
-        const tBaht = currentLang === 'th' ? 'บาท' : 'THB';
-        const tMin = currentLang === 'th' ? 'นาที' : 'min';
-
-        document.getElementById('results').innerHTML = `
-            <div class="res-card">
-                <b>${tTime}:</b> ${result.totals.time} ${tMin} | 
-                <b>${tCost}:</b> ${result.totals.cost} ${tBaht}
-            </div>`;
+    reconstruct(prev, endId) {
+        let path = [], curr = endId, totals = { time: 0, cost: 0, walk: 0 };
+        while (prev[curr]) {
+            totals.time += prev[curr].edge.time;
+            totals.cost += prev[curr].edge.cost;
+            totals.walk += prev[curr].edge.walk;
+            path.unshift(prev[curr]);
+            curr = prev[curr].from;
+        }
+        return path.length > 0 ? { path, totals } : null;
     }
 }
-
-window.logout = () => { sessionStorage.clear(); window.location.href = 'auth.html'; };
-init();

@@ -115,8 +115,8 @@ function updateMiniMap() {
         const startNode = graph.nodes[startId];
         const endNode = graph.nodes[endId];
 
-        const startIcon = L.circleMarker([startNode.lat, startNode.lng], { radius: 6, color: '#000', weight: 2, fillColor: '#00e676', fillOpacity: 1 });
-        const endIcon = L.circleMarker([endNode.lat, endNode.lng], { radius: 6, color: '#000', weight: 2, fillColor: '#ff5252', fillOpacity: 1 });
+        const startIcon = L.circleMarker([startNode.lat, startNode.lng], { radius: 8, color: '#000', weight: 2, fillColor: '#00e676', fillOpacity: 1 });
+        const endIcon = L.circleMarker([endNode.lat, endNode.lng], { radius: 8, color: '#000', weight: 2, fillColor: '#ff5252', fillOpacity: 1 });
 
         const previewLine = L.polyline([[startNode.lat, startNode.lng], [endNode.lat, endNode.lng]], {
             color: '#888', weight: 2, dashArray: '5, 5'
@@ -206,7 +206,7 @@ function renderMapNodes() {
     nodeMarkers = [];
     Object.values(graph.nodes).forEach(node => {
         const color = getLineColor(node.line);
-        const marker = L.circleMarker([node.lat, node.lng], { radius: 4, color: '#000', weight: 1, fillColor: color, fillOpacity: 0.8 })
+        const marker = L.circleMarker([node.lat, node.lng], { radius: 8, color: '#000', weight: 1, fillColor: color, fillOpacity: 0.8 })
             .bindPopup(`<div style="text-align:center;"><b>${getNodeName(node)}</b><br><span style="color:${color}; font-size:11px;">■ ${getLineName(node.line)}</span></div>`)
             .addTo(map);
         nodeMarkers.push(marker);
